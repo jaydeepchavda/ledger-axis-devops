@@ -1,0 +1,87 @@
+services:
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:17
+    container_name: ledgeraxis-postgres
+
+    environment:
+      POSTGRES_DB: ledgeraxis
+      POSTGRES_USER: ledgeraxis
+      POSTGRES_PASSWORD: ledgeraxis_pass
+
+    ports:
+      # Host:Container
+      - "15432:5432"
+
+    volumes:
+      # Persist PostgreSQL data even if the container is removed
+      - ledgeraxis-postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - ledgeraxis-network
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgeraxis -d ledgeraxis"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+
+  # Node.js backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+    image: ledgeraxis-backend:v1
+    container_name: ledgeraxis-backend
+
+    ports:
+      - "4000:4000"
+
+    env_file:
+      - ./backend/.env
+
+    environment:
+      # Inside Docker, backend must use the PostgreSQL
+      # service name instead of localhost.
+      PGHOST: postgres
+      PGPORT: 5432
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - ledgeraxis-network
+
+
+  # Angular frontend served by Nginx
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+
+    image: ledgeraxis-frontend:v1
+    container_name: ledgeraxis-frontend
+
+    ports:
+      - "8080:80"
+
+    depends_on:
+      - backend
+
+    networks:
+      - ledgeraxis-network
+
+
+# Persistent database storage
+volumes:
+  ledgeraxis-postgres-data:
+
+
+# Application network
+networks:
+  ledgeraxis-network:
+    driver: bridge

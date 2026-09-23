@@ -1,0 +1,64 @@
+# ============================================================
+# DEPENDENCIES
+# ============================================================
+
+# Do not copy local node_modules into the Docker build context.
+# Docker will install dependencies inside the build container
+# using npm ci.
+node_modules/
+
+
+# ============================================================
+# ANGULAR BUILD OUTPUT
+# ============================================================
+
+# Do not copy an existing local Angular build.
+# The Docker build will create a fresh production build.
+dist/
+
+
+# ============================================================
+# ENVIRONMENT / SECRETS
+# ============================================================
+
+# Do not send local environment files into the Docker build
+# context. Secrets and environment-specific configuration
+# should not be baked into the image.
+.env
+.env.*
+!.env.example
+
+
+# ============================================================
+# VERSION CONTROL
+# ============================================================
+
+# Git history is not required inside the Docker image.
+.git/
+.gitignore
+
+
+# ============================================================
+# IDE / EDITOR FILES
+# ============================================================
+
+.vscode/
+.idea/
+
+
+# ============================================================
+# OPERATING SYSTEM FILES
+# ============================================================
+
+.DS_Store
+Thumbs.db
+
+
+# ============================================================
+# LOGS
+# ============================================================
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
