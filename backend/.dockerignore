@@ -1,0 +1,24 @@
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Version control
+.git
+.gitignore
+
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Test/build output
+coverage/
+dist/
+build/
+
+# IDE/OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
