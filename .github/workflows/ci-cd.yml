@@ -28,8 +28,8 @@ permissions:
 # ============================================================
 
 env:
-  BACKEND_IMAGE: YOUR_DOCKER_USERNAME/ledgeraxis-backend
-  FRONTEND_IMAGE: YOUR_DOCKER_USERNAME/ledgeraxis-frontend
+  BACKEND_IMAGE: jaydipaws/ledgeraxis-backend
+  FRONTEND_IMAGE: jaydipaws/ledgeraxis-frontend
 
 
 jobs:
