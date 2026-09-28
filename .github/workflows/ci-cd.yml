@@ -1,9 +1,6 @@
 name: LedgerAxis CI/CD
 
-# ============================================================
-# WHEN DOES THIS PIPELINE RUN?
-# ============================================================
-
+# PIPELINE TRIGGERS
 on:
   push:
     branches:
@@ -15,18 +12,12 @@ on:
       - main
 
 
-# ============================================================
-# GLOBAL PERMISSIONS
-# ============================================================
-
+# PERMISSIONS
 permissions:
   contents: read
 
 
-# ============================================================
 # GLOBAL VARIABLES
-# ============================================================
-
 env:
   BACKEND_IMAGE: jaydipaws/ledgeraxis-backend
   FRONTEND_IMAGE: jaydipaws/ledgeraxis-frontend
@@ -34,35 +25,13 @@ env:
 
 jobs:
 
-  # ==========================================================
   # BACKEND CI
-  # ==========================================================
-
   backend-ci:
-
     name: Backend CI
-
     runs-on: ubuntu-latest
 
-    # --------------------------------------------------------
-    # Environment variables used by backend tests
-    # --------------------------------------------------------
-
-    env:
-      PGHOST: localhost
-      PGPORT: 5432
-      PGDATABASE: ledgeraxis
-      PGUSER: ledgeraxis
-      PGPASSWORD: ledgeraxis_pass
-      PGSSLMODE: disable
-      PGSCHEMA: public
-
-    # --------------------------------------------------------
-    # PostgreSQL service required by DB integration tests
-    # --------------------------------------------------------
-
+    # PostgreSQL required by database integration tests
     services:
-
       postgres:
         image: postgres:17
 
@@ -80,275 +49,129 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
+    # Environment used by the backend and migration scripts
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: ledgeraxis
+      PGUSER: ledgeraxis
+      PGPASSWORD: ledgeraxis_pass
+      PGSSLMODE: disable
+      PGSCHEMA: public
 
     steps:
 
-      # ------------------------------------------------------
-      # 1. Checkout repository
-      # ------------------------------------------------------
-
+      # Download repository
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-
-      # ------------------------------------------------------
-      # 2. Install Node.js 24
-      # ------------------------------------------------------
-
+      # Install Node.js 24
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-
-      # ------------------------------------------------------
-      # 3. Install backend dependencies
-      # ------------------------------------------------------
-
-      - name: Install backend dependencies
+      # Install exact dependencies
+      - name: Install dependencies
         working-directory: backend
         run: npm ci
 
-
-      # ------------------------------------------------------
-      # 4. Run database migrations
-      # ------------------------------------------------------
-
-      - name: Run database migrations
+      # Create database schema
+      - name: Run migrations
         working-directory: backend
         run: npm run migrate
 
-
-      # ------------------------------------------------------
-      # 5. Run backend tests
-      # ------------------------------------------------------
-
-      - name: Run backend tests
+      # Run backend unit + integration + DB tests
+      - name: Run tests
         working-directory: backend
         run: npm test
 
 
-      # ------------------------------------------------------
-      # 6. Build backend Docker image
-      #
-      # push=false means:
-      # Build image for validation but do NOT publish it.
-      # ------------------------------------------------------
-
-      - name: Build backend Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: false
-          tags: ledgeraxis-backend:test
-
-
-  # ==========================================================
   # FRONTEND CI
-  # ==========================================================
 
   frontend-ci:
-
     name: Frontend CI
-
     runs-on: ubuntu-latest
-
 
     steps:
 
-      # ------------------------------------------------------
-      # 1. Checkout repository
-      # ------------------------------------------------------
-
+      # Download repository
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-
-      # ------------------------------------------------------
-      # 2. Install Node.js 24
-      # ------------------------------------------------------
-
+      # Install Node.js 24
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-
-      # ------------------------------------------------------
-      # 3. Install frontend dependencies
-      # ------------------------------------------------------
-
-      - name: Install frontend dependencies
+      # Install exact dependencies
+      - name: Install dependencies
         working-directory: frontend
         run: npm ci
 
-
-      # ------------------------------------------------------
-      # 4. Run frontend tests
-      # ------------------------------------------------------
-
-      - name: Run frontend tests
+      # Run frontend tests
+      - name: Run tests
         working-directory: frontend
         run: npm test -- --watch=false
 
-
-      # ------------------------------------------------------
-      # 5. Build Angular application
-      # ------------------------------------------------------
-
-      - name: Build Angular application
+      # Verify production Angular build
+      - name: Build application
         working-directory: frontend
         run: npm run build
 
 
-      # ------------------------------------------------------
-      # 6. Build frontend Docker image
-      #
-      # push=false means:
-      # Build image for validation but do NOT publish it.
-      # ------------------------------------------------------
-
-      - name: Build frontend Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: false
-          tags: ledgeraxis-frontend:test
-
-
   # ==========================================================
-  # DOCKER BUILD + PUSH
-  #
-  # This job runs ONLY after:
-  #
-  # Backend CI   -> PASS
-  # Frontend CI  -> PASS
-  #
-  # AND
-  #
-  # The code was pushed to main.
+  # BUILD + PUSH DOCKER IMAGES
   # ==========================================================
 
   docker-publish:
-
     name: Build and Push Docker Images
-
     runs-on: ubuntu-latest
 
+    # Do not build/push images until BOTH CI jobs pass
     needs:
       - backend-ci
       - frontend-ci
 
-    # --------------------------------------------------------
-    # Only publish images from main.
-    # Feature branches only run CI.
-    # --------------------------------------------------------
-
-    if: >
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main'
-
+    # Only publish from main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
 
-      # ------------------------------------------------------
-      # 1. Checkout repository
-      # ------------------------------------------------------
-
+      # Download repository
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
-
-      # ------------------------------------------------------
-      # 2. Login to Docker Hub
-      #
-      # Credentials come from GitHub repository secrets.
-      # ------------------------------------------------------
-
+      # Login to Docker Hub
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-
-      # ------------------------------------------------------
-      # 3. Setup Docker Buildx
-      # ------------------------------------------------------
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-
-      # ------------------------------------------------------
-      # 4. Build and push backend image
-      # ------------------------------------------------------
-
-      - name: Build and push backend image
-        uses: docker/build-push-action@v7
-
+      # Build and push backend
+      - name: Build and push backend
+        uses: docker/build-push-action@v6
         with:
-
-          # Backend Docker build context
           context: ./backend
-
-          # Backend Dockerfile
           file: ./backend/Dockerfile
-
-          # Push image to Docker Hub
           push: true
-
-          # Immutable Git commit tag
           tags: |
             ${{ env.BACKEND_IMAGE }}:git-${{ github.sha }}
-            ${{ env.BACKEND_IMAGE }}:main
+            ${{ env.BACKEND_IMAGE }}:latest
 
-          # GitHub Actions Docker build cache
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-          # Generate build provenance
-          provenance: true
-
-          # Generate SBOM
-          sbom: true
-
-
-      # ------------------------------------------------------
-      # 5. Build and push frontend image
-      # ------------------------------------------------------
-
-      - name: Build and push frontend image
-        uses: docker/build-push-action@v7
-
+      # Build and push frontend
+      - name: Build and push frontend
+        uses: docker/build-push-action@v6
         with:
-
-          # Frontend Docker build context
           context: ./frontend
-
-          # Frontend Dockerfile
           file: ./frontend/Dockerfile
-
-          # Push image to Docker Hub
           push: true
-
-          # Immutable Git commit tag
           tags: |
             ${{ env.FRONTEND_IMAGE }}:git-${{ github.sha }}
-            ${{ env.FRONTEND_IMAGE }}:main
-
-          # GitHub Actions Docker build cache
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-          # Generate build provenance
-          provenance: true
-
-          # Generate SBOM
-          sbom: true
+            ${{ env.FRONTEND_IMAGE }}:latest
